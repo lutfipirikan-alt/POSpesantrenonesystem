@@ -2,6 +2,7 @@ package com.pesantren.onesystem.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -87,8 +88,9 @@ fun SantriRow(name: String, sub: String, trailing: @Composable (() -> Unit)? = n
     val base = Modifier
         .fillMaxWidth()
         .padding(vertical = 6.dp)
+    val mod = if (onClick != null) base.clickable { onClick() } else base
     Row(
-        modifier = if (onClick != null) base.then(androidx.compose.foundation.clickable { onClick() }) else base,
+        modifier = mod,
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
