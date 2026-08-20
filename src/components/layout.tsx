@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { activeCardOf, db, santriById, useDB } from '../lib/store';
 import { balanceOf } from '../lib/services/wallet';
 import { can, login, logout, ROLE_LABEL, ROLE_TONE } from '../lib/services/auth';
-import { nfcReader, resolveCard } from '../lib/services/nfc';
+import { nfcHub, nfcReader, resolveCard } from '../lib/services/nfc';
 import { rp, cx, fmtTime, num } from '../lib/util';
 import {
   IcAlert, IcBell, IcBook, IcBox, IcCal, IcCap, IcCard, IcCart, IcChart, IcClipboard,
@@ -271,26 +271,29 @@ export function NfcDock() {
   const [connected, setConnected] = useState(nfcReader.connected);
   const [uidInput, setUidInput] = useState('');
   const [selSantri, setSelSantri] = useState('SAN-001');
+  const [webActive, setWebActive] = useState(false);
+  const [writing, setWriting] = useState(false);
   const [, force] = useState(0);
 
   useEffect(() => {
-    nfcReader.onEvent = () => force((x) => x + 1);
-    void nfcReader.connect().then(() => setConnected(true));
-    const offCard = nfcReader.onCardDetected((uid) => {
-      const res = resolveCard(uid);
-      window.dispatchEvent(new CustomEvent('pos1s:nfc', { detail: { uid } }));
-      if ('error' in res) toast.push('err', 'Kartu ditolak', res.error);
-      else toast.push('ok', `Kartu terbaca — ${res.santri.name}`, `UID ${uid}`);
+    const off = nfcHub.init({
+      onCard: (uid) => {
+        const res = resolveCard(uid);
+        window.dispatchEvent(new CustomEvent('pos1s:nfc', { detail: { uid } }));
+        if ('error' in res) toast.push('err', 'Kartu ditolak', res.error);
+        else toast.push('ok', `Kartu terbaca — ${res.santri.name}`, uid.startsWith('SAN:') ? `Identitas NDEF ${uid}` : `UID ${uid}`);
+      },
+      onError: (e) => toast.push('err', 'NFC Reader', e.message),
+      onLog: () => force((x) => x + 1),
     });
-    const offErr = nfcReader.onError((e) => toast.push('err', 'NFC Reader', e.message));
-    return () => {
-      offCard();
-      offErr();
-    };
+    setConnected(true);
+    return () => off();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const santriWithCard = db.santri.filter((s) => activeCardOf(s.id));
+  const events = nfcHub.allEvents();
+
+  const santriWithCard = db.santri.filter((s) => s.status === 'aktif' && !s.deletedAt);
 
   return (
     <>
@@ -302,7 +305,7 @@ export function NfcDock() {
       >
         <span className={cx('h-2 w-2 rounded-full', connected ? 'bg-ok blink' : 'bg-danger')} />
         <IcWifi size={14} className="text-gold-300" />
-        NFC Simulator
+        NFC · {nfcHub.mode === 'NATIVE' ? 'Native' : nfcHub.mode === 'WEB_NFC' ? 'HP' : 'Simulator'}
         <span className="text-navy-400">{open ? '—' : '+'}</span>
       </button>
 
@@ -310,16 +313,67 @@ export function NfcDock() {
         <div className="anim-pop no-print fixed inset-x-3 bottom-2 z-[60] overflow-hidden rounded-xl border border-navy-700 bg-navy-950 text-navy-100 shadow-2xl lg:inset-x-auto lg:bottom-16 lg:right-4 lg:w-[320px]">
           <div className="motif flex items-center justify-between border-b border-navy-800 px-3.5 py-2.5">
             <div className="flex items-center gap-2 text-xs font-bold">
-              <IcScan size={15} className="text-gold-300" /> MockNfcReader
-              <Badge tone={connected ? 'ok' : 'danger'}>{connected ? 'TERHUBUNG' : 'OFFLINE'}</Badge>
+              <IcScan size={15} className="text-gold-300" /> {nfcHub.modeLabel()}
+              <Badge tone={connected ? 'ok' : 'danger'}>{connected ? 'AKTIF' : 'OFFLINE'}</Badge>
             </div>
             <button onClick={() => setOpen(false)} className="text-navy-400 hover:text-white">
               <IcX size={14} />
             </button>
           </div>
           <div className="space-y-2.5 p-3.5">
+            {nfcHub.mode === 'WEB_NFC' && (
+              <div className="space-y-1.5 rounded-lg border border-gold-400/40 bg-navy-900 p-2.5">
+                <p className="text-[11px] leading-relaxed text-navy-200">
+                  <b className="text-gold-300">NFC HP sungguhan (Chrome Android, HTTPS).</b> Baca UID kartu NTAG & kartu yang sudah ditulis. MIFARE Classic butuh APK native.
+                </p>
+                <div className="flex gap-1.5">
+                  <Btn
+                    variant={webActive ? 'ok' : 'gold'}
+                    size="sm"
+                    className={cx('flex-1', !webActive && 'pulse-ring')}
+                    onClick={async () => {
+                      try {
+                        await nfcHub.activateWebScan();
+                        setWebActive(true);
+                        toast.push('ok', 'Scanner NFC HP aktif', 'Tempelkan kartu ke punggung HP.');
+                      } catch (e) {
+                        toast.push('err', 'Gagal mengaktifkan NFC', e instanceof Error ? e.message : '');
+                      }
+                    }}
+                  >
+                    <IcScan size={13} /> {webActive ? 'Scanner Aktif' : 'Aktifkan Scanner HP'}
+                  </Btn>
+                  <Btn
+                    variant="outline"
+                    size="sm"
+                    className="border-navy-700 bg-navy-900 text-navy-100 hover:bg-navy-800"
+                    disabled={writing}
+                    onClick={async () => {
+                      setWriting(true);
+                      try {
+                        await nfcHub.writeCard(selSantri);
+                        toast.push('ok', 'Kartu berhasil ditulis', `${db.santri.find((s) => s.id === selSantri)?.name} — kartu siap dipakai di semua halaman.`);
+                      } catch (e) {
+                        toast.push('err', 'Gagal menulis kartu', e instanceof Error ? e.message : 'Pastikan kartu NTAG kosong menempel saat menekan tombol.');
+                      } finally {
+                        setWriting(false);
+                      }
+                    }}
+                  >
+                    {writing ? 'Tulis…' : 'Tulis Kartu'}
+                  </Btn>
+                </div>
+              </div>
+            )}
+            {nfcHub.mode === 'NATIVE' && (
+              <p className="rounded-lg border border-okln/40 bg-navy-900 p-2.5 text-[11px] leading-relaxed text-navy-200">
+                <b className="text-ok">NFC native aktif.</b> Tempelkan kartu apa pun ke HP — UID dibaca langsung (termasuk MIFARE Classic).
+              </p>
+            )}
             <p className="text-[11px] leading-relaxed text-navy-300">
-              Simulasi USB NFC reader di meja kasir. Tempel = kirim UID ke halaman aktif (POS, top up, absensi…). Bacaan duplikat didebounce {db.settings.nfcCooldownMs} ms.
+              {nfcHub.mode === 'MOCK'
+                ? `Simulasi reader kasir (browser desktop tidak punya akses NFC). Tempel = kirim UID ke halaman aktif. Duplikat didebounce ${db.settings.nfcCooldownMs} ms.`
+                : `Bacaan duplikat didebounce ${db.settings.nfcCooldownMs} ms — anti transaksi ganda.`}
             </p>
             <div className="flex gap-1.5">
               <select
@@ -371,8 +425,8 @@ export function NfcDock() {
               Tempel kartu tak dikenal (uji error)
             </button>
             <div className="max-h-28 space-y-1 overflow-auto rounded-lg bg-navy-900/70 p-2">
-              {nfcReader.events.length === 0 && <p className="text-[11px] text-navy-500">Belum ada event…</p>}
-              {nfcReader.events.map((e) => (
+              {events.length === 0 && <p className="text-[11px] text-navy-500">Belum ada event…</p>}
+              {events.map((e) => (
                 <div key={e.id} className="flex items-start gap-1.5 text-[10.5px] leading-snug">
                   <span className={cx('mt-1 h-1.5 w-1.5 shrink-0 rounded-full', e.kind === 'detected' && 'bg-ok', e.kind === 'duplicate' && 'bg-gold-400', e.kind === 'error' && 'bg-danger', e.kind === 'info' && 'bg-info')} />
                   <span className="text-navy-300">

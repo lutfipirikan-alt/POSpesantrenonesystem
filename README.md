@@ -43,6 +43,18 @@ Login dengan salah satu **akun demo** (password: `demo123`):
 
 Klik **NFC Simulator** (kanan bawah) → pilih santri → **Tempel**, atau ketik UID manual (mis. `04:A1:B2:C3:D4:E5:F6`). Event UID disiarkan ke halaman aktif (POS, top up, absensi, laundry, perpustakaan, pemasangan kartu). Bacaan duplikat dalam jendela cooldown otomatis diabaikan.
 
+## NFC sungguhan di HP Android
+
+Dock NFC mendeteksi lingkungan dan memilih reader terbaik secara otomatis (`src/lib/services/nfc.ts`):
+
+| Mode | Ketersediaan | Kemampuan |
+|---|---|---|
+| **NATIVE** | APK Capacitor (lihat [`native/NATIVE_ANDROID.md`](native/NATIVE_ANDROID.md)) | UID semua kartu 13,56 MHz — **termasuk MIFARE Classic** (kartu pelajar umum), tulis kartu NTAG |
+| **WEB_NFC** | Chrome Android + **HTTPS** | UID kartu NTAG + baca/tulis kartu ber-identitas NDEF; MIFARE Classic terkunci (butuh APK) |
+| **MOCK** | browser desktop / tanpa dukungan | simulasi: tempel manual, UID manual, kartu tak dikenal |
+
+Alur nyata tanpa APK: buka aplikasi lewat HTTPS (mis. Netlify) di Chrome Android → dock → **Aktifkan Scanner HP** → pilih santri → **Tulis Kartu** → tempel stiker NTAG kosong → kartu itu kini dikenali di POS/top up/absensi. iPhone/Safari tidak memiliki akses NFC untuk web sama sekali.
+
 ## Uji otomatis
 
 Buka **Uji Sistem** (menu Sistem) — 11 skenario dijalankan terhadap service layer sungguhan:
@@ -79,11 +91,14 @@ src/
       reports.ts        # agregasi laporan
   components/           # design system, ikon SVG, grafik SVG, shell + NFC dock
   pages/                # Dashboard, Santri, Cards, Finance (topup/ledger/tagihan), POS, Catalog, Laundry, Library, School, Wali, Admin
+native/android/         # NfcReaderPlugin.kt — plugin NFC native (UID MIFARE, tulis kartu)
+capacitor.config.ts     # pembungkus Android (APK) — panduan: native/NATIVE_ANDROID.md
+public/sw.js            # service worker (PWA: instal + offline)
 ```
 
 ## Batasan & jalan migrasi
 
-- **NFC hardware**: `WebUsbNfcReader` adalah kerangka (device CCID/PCSC seperti ACS ACR122U butuh driver WebUSB yang belum diverifikasi tanpa perangkat). Gunakan Mock Mode untuk pengujian; implementasi produksi tinggal menggantikan kelas reader tanpa menyentuh logika bisnis.
+- **NFC hardware**: tersedia 4 implementasi `NfcReader` — Mock (uji), Web NFC (Chrome Android + HTTPS), **Native Capacitor** (APK, baca UID MIFARE — panduan build di `native/NATIVE_ANDROID.md`), dan kerangka `WebUsbNfcReader` untuk USB reader komputer kasir (device CCID/PCSC seperti ACS ACR122U butuh driver — belum diverifikasi tanpa perangkat). Mengganti reader tidak menyentuh logika bisnis.
 - **Database**: ganti persistensi `store.ts` dengan Supabase/PostgreSQL + RLS; service layer sudah memusatkan seluruh aturan bisnis.
 - **WhatsApp**: implementasikan interface `NotificationChannel` untuk provider pilihan (Wablas/Fonnte/Twilio) via env var — tanpa mengubah pemanggil.
 
