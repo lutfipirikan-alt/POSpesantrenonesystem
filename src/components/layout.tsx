@@ -8,9 +8,56 @@ import { nfcReader, resolveCard } from '../lib/services/nfc';
 import { rp, cx, fmtTime, num } from '../lib/util';
 import {
   IcAlert, IcBell, IcBook, IcBox, IcCal, IcCap, IcCard, IcCart, IcChart, IcClipboard,
-  IcDash, IcFlask, IcGrip, IcLogout, IcMoonStar, IcReceipt, IcSantri, IcScan, IcSend,
-  IcSettings, IcShield, IcStar, IcTag, IcUsers, IcWallet, IcWifi, IcX, Logo,
+  IcDash, IcDownload, IcFlask, IcGrip, IcInfo, IcLogout, IcMoonStar, IcReceipt, IcSantri,
+  IcScan, IcSend, IcSettings, IcShield, IcStar, IcTag, IcUsers, IcWallet, IcWifi, IcX, Logo,
 } from './icons';
+
+/* ---------- PWA install prompt (Android: "Tambahkan ke layar utama") ---------- */
+interface BeforeInstallPromptEvent extends Event {
+  prompt(): Promise<void>;
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
+}
+let bipEvent: BeforeInstallPromptEvent | null = null;
+let appInstalled =
+  typeof window !== 'undefined' && !!window.matchMedia?.('(display-mode: standalone)').matches;
+const bipListeners = new Set<() => void>();
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    bipEvent = e as BeforeInstallPromptEvent;
+    bipListeners.forEach((l) => l());
+  });
+  window.addEventListener('appinstalled', () => {
+    appInstalled = true;
+    bipEvent = null;
+    bipListeners.forEach((l) => l());
+  });
+}
+function useInstallApp() {
+  const [, force] = useState(0);
+  useEffect(() => {
+    const l = () => force((x) => x + 1);
+    bipListeners.add(l);
+    return () => {
+      bipListeners.delete(l);
+    };
+  }, []);
+  return {
+    available: !!bipEvent && !appInstalled,
+    installed: appInstalled,
+    prompt: async () => {
+      if (!bipEvent) return false;
+      await bipEvent.prompt();
+      const c = await bipEvent.userChoice;
+      if (c.outcome === 'accepted') {
+        appInstalled = true;
+        bipEvent = null;
+        bipListeners.forEach((l) => l());
+      }
+      return c.outcome === 'accepted';
+    },
+  };
+}
 import { Avatar, Badge, Btn, Field, inputCls, Modal, useToast, type Tone } from './ui';
 import type { User } from '../lib/types';
 
@@ -192,7 +239,13 @@ export function LoginPage() {
               </button>
             ))}
           </div>
-          <p className="mt-4 text-[11px] leading-relaxed text-mute">
+          <div className="mt-4 flex items-start gap-2.5 rounded-xl border border-infoln bg-infobg px-3.5 py-3 text-[11.5px] leading-relaxed text-info">
+            <IcInfo size={15} className="mt-0.5 shrink-0" />
+            <span>
+              <b>Uji coba di HP Android:</b> buka alamat ini di Chrome, lalu tekan tombol <b>Instal</b> di kanan atas (atau menu Chrome ⋮ → <i>Tambahkan ke layar utama</i>). Aplikasi terbuka fullscreen seperti aplikasi biasa dan tetap berjalan saat offline.
+            </span>
+          </div>
+          <p className="mt-3 text-[11px] leading-relaxed text-mute">
             Produksi: autentikasi via Supabase Auth + Row Level Security. Demo ini menyimpan sesi secara lokal.
           </p>
         </div>
@@ -244,7 +297,8 @@ export function NfcDock() {
       {/* pill status */}
       <button
         onClick={() => setOpen((o) => !o)}
-        className="no-print fixed bottom-4 right-4 z-[60] flex items-center gap-2 rounded-full border border-navy-700 bg-navy-900 py-2 pl-3 pr-4 text-xs font-bold text-navy-100 shadow-xl transition-transform hover:scale-[1.03]"
+        style={{ marginBottom: 'env(safe-area-inset-bottom)' }}
+        className="no-print fixed bottom-[4.75rem] right-4 z-[60] flex items-center gap-2 rounded-full border border-navy-700 bg-navy-900 py-2 pl-3 pr-4 text-xs font-bold text-navy-100 shadow-xl transition-transform hover:scale-[1.03] lg:bottom-4"
       >
         <span className={cx('h-2 w-2 rounded-full', connected ? 'bg-ok blink' : 'bg-danger')} />
         <IcWifi size={14} className="text-gold-300" />
@@ -253,7 +307,7 @@ export function NfcDock() {
       </button>
 
       {open && (
-        <div className="anim-pop no-print fixed bottom-16 right-4 z-[60] w-[320px] overflow-hidden rounded-xl border border-navy-700 bg-navy-950 text-navy-100 shadow-2xl">
+        <div className="anim-pop no-print fixed inset-x-3 bottom-2 z-[60] overflow-hidden rounded-xl border border-navy-700 bg-navy-950 text-navy-100 shadow-2xl lg:inset-x-auto lg:bottom-16 lg:right-4 lg:w-[320px]">
           <div className="motif flex items-center justify-between border-b border-navy-800 px-3.5 py-2.5">
             <div className="flex items-center gap-2 text-xs font-bold">
               <IcScan size={15} className="text-gold-300" /> MockNfcReader
@@ -338,6 +392,8 @@ export function NfcDock() {
 export function Shell({ user, route, children }: { user: User; route: string[]; children: ReactNode }) {
   useDB();
   const [, nav] = useHashRoute();
+  const toast = useToast();
+  const install = useInstallApp();
   const [sideOpen, setSideOpen] = useState(false);
   const page = route[0] || 'dash';
   const unread = db.notifs.filter((n) => !n.read && (!n.userId || n.userId === user.id)).length;
@@ -439,6 +495,23 @@ export function Shell({ user, route, children }: { user: User; route: string[]; 
               </p>
             </div>
             <div className="ml-auto flex items-center gap-2">
+              {install.available && (
+                <Btn
+                  variant="gold"
+                  size="sm"
+                  onClick={async () => {
+                    const ok = await install.prompt();
+                    toast.push(
+                      ok ? 'ok' : 'info',
+                      ok ? 'Aplikasi terpasang' : 'Instalasi dibatalkan',
+                      ok ? 'Buka Pesantren One System dari layar utama HP Anda.' : 'Menu Chrome ⋮ → "Tambahkan ke layar utama" juga bisa.'
+                    );
+                  }}
+                >
+                  <IcDownload size={13} /> <span className="hidden sm:inline">Instal Aplikasi</span>
+                  <span className="sm:hidden">Instal</span>
+                </Btn>
+              )}
               <span className="hidden items-center gap-1.5 rounded-full border border-okln bg-okbg px-2.5 py-1 text-[11px] font-bold text-ok md:flex">
                 <span className="blink h-1.5 w-1.5 rounded-full bg-ok" /> NFC Reader Aktif
               </span>
@@ -456,7 +529,7 @@ export function Shell({ user, route, children }: { user: User; route: string[]; 
             </div>
           </div>
         </header>
-        <main key={page} className="anim-fade-up mx-auto max-w-[1400px] p-4 lg:p-6">{children}</main>
+        <main key={page} className="anim-fade-up mx-auto max-w-[1400px] p-4 pb-28 lg:p-6">{children}</main>
       </div>
       <NfcDock />
     </div>

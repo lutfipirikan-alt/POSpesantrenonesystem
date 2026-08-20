@@ -2,7 +2,7 @@
    Alur kasir: SCAN NFC → PILIH BARANG → BAYAR → SELESAI
    Harga dari katalog server · saldo divalidasi server · idempotency per checkout. */
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import type { Sale, SaleItem, SaleMethod, User } from '../lib/types';
 import { balanceOf, db, outletById, useDB } from '../lib/store';
 import { checkout, refundSale } from '../lib/services/pos';
@@ -32,6 +32,7 @@ export default function PosPage({ user }: { user: User }) {
   const [refundTarget, setRefundTarget] = useState<Sale | null>(null);
   const [refundReason, setRefundReason] = useState('');
   const [insufficient, setInsufficient] = useState<{ balance: number; total: number } | null>(null);
+  const cartRef = useRef<HTMLDivElement>(null);
 
   const products = useMemo(
     () =>
@@ -106,8 +107,21 @@ export default function PosPage({ user }: { user: User }) {
 
   const recent = [...db.sales].filter((s) => s.outletId === outletId).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 6);
 
+  const barAction = () => {
+    if (cart.length === 0) {
+      cartRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+    if (method === 'SALDO_NFC' && !santri) {
+      cartRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      setScanning(true);
+      return;
+    }
+    void pay();
+  };
+
   return (
-    <div className="grid gap-4 xl:grid-cols-5">
+    <div className="grid gap-4 pb-24 xl:grid-cols-5 lg:pb-0">
       {/* ===== kiri: produk ===== */}
       <div className="space-y-3 xl:col-span-3">
         <div className="flex flex-wrap items-center gap-2">
@@ -158,6 +172,7 @@ export default function PosPage({ user }: { user: User }) {
 
       {/* ===== kanan: santri + keranjang ===== */}
       <div className="space-y-3 xl:col-span-2">
+        <div ref={cartRef} className="scroll-mt-3">
         <Card pad={false}>
           <div className={cx('relative overflow-hidden rounded-t-xl p-4', santri ? 'bg-navy-900' : 'bg-navy-950')}>
             <div className="motif absolute inset-0" />
@@ -267,6 +282,7 @@ export default function PosPage({ user }: { user: User }) {
             {method === 'SALDO_NFC' && !santri && <p className="mt-1.5 text-center text-[11px] text-mute">Tempel kartu santri untuk mengaktifkan pembayaran saldo</p>}
           </div>
         </Card>
+        </div>
 
         <Card title={`Transaksi terakhir · ${outletById(outletId)?.name ?? ''}`} pad={false}>
           {recent.length === 0 ? <Empty title="Belum ada transaksi" /> : (
@@ -343,6 +359,37 @@ export default function PosPage({ user }: { user: User }) {
           </div>
         )}
       </Modal>
+
+      {/* ===== bar pembayaran mobile — alur cepat di layar HP ===== */}
+      <div
+        className="no-print fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface/95 shadow-[0_-6px_20px_rgba(10,31,62,0.10)] backdrop-blur lg:hidden"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+      >
+        <div className="flex items-center gap-2.5 px-3 py-2.5">
+          <button
+            onClick={() => cartRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+            className="relative rounded-lg border border-line bg-bg p-2.5 text-ink transition-transform active:scale-95"
+            title="Lihat keranjang"
+          >
+            <IcCart size={17} />
+            {itemCount > 0 && (
+              <span className="absolute -right-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-gold-400 px-1 text-[10px] font-bold text-navy-950 tnum">
+                {itemCount}
+              </span>
+            )}
+          </button>
+          <div className="min-w-0 flex-1 leading-tight">
+            <p className="text-[9.5px] font-bold uppercase tracking-wide text-mute">
+              {santri ? santri.nickname : method === 'SALDO_NFC' ? 'Belum scan kartu' : 'Tunai'} · Total
+            </p>
+            <p className="font-display text-lg font-bold text-navy-800 tnum">{rp(total)}</p>
+          </div>
+          <Btn variant={method === 'SALDO_NFC' ? 'gold' : 'ok'} size="lg" className="px-5 text-[13px]" disabled={processing} onClick={barAction}>
+            {processing && <Spinner size={15} />}
+            {cart.length === 0 ? 'KERANJANG' : method === 'SALDO_NFC' && !santri ? 'SCAN KARTU' : 'BAYAR'}
+          </Btn>
+        </div>
+      </div>
     </div>
   );
 }

@@ -86,3 +86,37 @@ src/
 - **NFC hardware**: `WebUsbNfcReader` adalah kerangka (device CCID/PCSC seperti ACS ACR122U butuh driver WebUSB yang belum diverifikasi tanpa perangkat). Gunakan Mock Mode untuk pengujian; implementasi produksi tinggal menggantikan kelas reader tanpa menyentuh logika bisnis.
 - **Database**: ganti persistensi `store.ts` dengan Supabase/PostgreSQL + RLS; service layer sudah memusatkan seluruh aturan bisnis.
 - **WhatsApp**: implementasikan interface `NotificationChannel` untuk provider pilihan (Wablas/Fonnte/Twilio) via env var — tanpa mengubah pemanggil.
+
+## Menjalankan di HP Android (seperti aplikasi native)
+
+Aplikasi ini adalah **PWA installable**: terpasang di layar utama Android, terbuka fullscreen tanpa address bar, dan bekerja offline setelah kunjungan pertama — tanpa Play Store.
+
+**1. Siapkan server yang bisa diakses HP**
+
+```bash
+npm run build
+npm run preview -- --host --port 4173
+```
+
+Buka di HP (Chrome) alamat yang tercetak, mis. `http://192.168.1.10:4173` — HP dan komputer harus satu jaringan WiFi.
+
+**2. Instal ke layar utama**
+
+- Saat syarat terpenuhi (HTTPS/localhost + manifest + service worker), muncul tombol **Instal** di kanan atas aplikasi → ketuk → *Install*.
+- Alternatif manual: menu Chrome **⋮ → Tambahkan ke layar utama / Install app**.
+- Ikon pesantren muncul di home screen; mengetuknya membuka aplikasi fullscreen (display: standalone) dengan splash navy. Long-press ikon memberi pintasan cepat: **POS, Top Up, Santri, Portal Wali**.
+
+**3. Catatan jujur**
+
+- Lewat HTTP jaringan lokal, Chrome mungkin tidak memunculkan prompt instal otomatis (Chrome mensyaratkan *secure context*). Solusi termudah: unggah folder `dist/` ke hosting statis HTTPS gratis (Netlify Drop — drag & drop, Vercel, atau GitHub Pages), lalu buka URL HTTPS-nya di HP. Tombol **Instal** akan muncul.
+- Data (termasuk saldo & riwayat) tersimpan di perangkat (localStorage) — tiap HP punya datanya sendiri; tombol **Reset Data Demo** ada di Pengaturan.
+- Jika benar-benar butuh file **`.apk`** (distribusi luar Play Store), bungkus proyek ini dengan Capacitor — service layer & UI dipakai apa adanya:
+
+```bash
+npm i @capacitor/core @capacitor/cli @capacitor/android
+npx cap init "Pesantren One System" com.pesantren.onesystem --web-dir=dist
+npm run build
+npx cap add android
+npx cap sync
+npx cap open android   # build APK/AAB lewat Android Studio (Build > Build APK)
+```
