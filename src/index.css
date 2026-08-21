@@ -1,0 +1,221 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Bricolage Grotesque", "Public Sans", sans-serif;
+  --font-body: "Public Sans", ui-sans-serif, sans-serif;
+
+  --color-bg: #f1f4f8;
+  --color-surface: #fbfcfe;
+  --color-ink: #101d33;
+  --color-mute: #5c6c86;
+  --color-line: #e2e8f1;
+
+  --color-navy-50: #eef3fa;
+  --color-navy-100: #dce6f3;
+  --color-navy-200: #b9cce4;
+  --color-navy-300: #8faed1;
+  --color-navy-400: #5d87b8;
+  --color-navy-500: #37639b;
+  --color-navy-600: #1f4b85;
+  --color-navy-700: #143a6c;
+  --color-navy-800: #0e2b54;
+  --color-navy-900: #0a1f3e;
+  --color-navy-950: #06152b;
+
+  --color-gold-50: #fbf3e2;
+  --color-gold-100: #f6e6c3;
+  --color-gold-200: #edd194;
+  --color-gold-300: #e3ba63;
+  --color-gold-400: #dba63e;
+  --color-gold-500: #c9922b;
+  --color-gold-600: #a87722;
+  --color-gold-700: #855d1c;
+
+  --color-ok: #17835a;
+  --color-okbg: #e3f4eb;
+  --color-okln: #bfe5d2;
+  --color-warn: #a26a10;
+  --color-warnbg: #fbf1dc;
+  --color-warnln: #eedcb2;
+  --color-danger: #c24545;
+  --color-dangerbg: #fae8e8;
+  --color-dangerln: #f0caca;
+  --color-info: #2c6fb0;
+  --color-infobg: #e8f1fa;
+  --color-infoln: #c6ddf2;
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+::selection {
+  background: #edd194;
+  color: #0a1f3e;
+}
+
+*::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+*::-webkit-scrollbar-thumb {
+  background: #c4cfdd;
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes toastIn {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+@keyframes pulseRing {
+  0% {
+    box-shadow: 0 0 0 0 rgba(219, 166, 62, 0.55);
+  }
+  70% {
+    box-shadow: 0 0 0 14px rgba(219, 166, 62, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(219, 166, 62, 0);
+  }
+}
+@keyframes scanline {
+  0% {
+    top: 6%;
+  }
+  50% {
+    top: 88%;
+  }
+  100% {
+    top: 6%;
+  }
+}
+@keyframes blinkDot {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
+@keyframes barGrow {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+@keyframes dashMove {
+  to {
+    stroke-dashoffset: -240;
+  }
+}
+
+.anim-fade-up {
+  animation: fadeUp 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.anim-pop {
+  animation: pop 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.anim-toast {
+  animation: toastIn 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.pulse-ring {
+  animation: pulseRing 1.6s ease-out infinite;
+}
+.blink {
+  animation: blinkDot 1.2s ease-in-out infinite;
+}
+.bar-grow {
+  transform-origin: bottom;
+  animation: barGrow 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.scan-beam {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, #dba63e, transparent);
+  animation: scanline 1.8s ease-in-out infinite;
+}
+.dash-flow {
+  stroke-dasharray: 6 6;
+  animation: dashMove 8s linear infinite;
+}
+
+.stagger > * {
+  animation: fadeUp 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.stagger > *:nth-child(1) { animation-delay: 0.02s; }
+.stagger > *:nth-child(2) { animation-delay: 0.06s; }
+.stagger > *:nth-child(3) { animation-delay: 0.1s; }
+.stagger > *:nth-child(4) { animation-delay: 0.14s; }
+.stagger > *:nth-child(5) { animation-delay: 0.18s; }
+.stagger > *:nth-child(6) { animation-delay: 0.22s; }
+.stagger > *:nth-child(7) { animation-delay: 0.26s; }
+.stagger > *:nth-child(8) { animation-delay: 0.3s; }
+
+.motif {
+  background-image: url("data:image/svg+xml,%3Csvg width='56' height='56' viewBox='0 0 56 56' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M28 4l4.7 12.8L46 17l-10 8.4L38.5 39 28 31.6 17.5 39 20 25.4 10 17l13.3-.2z' fill='none' stroke='%23ffffff' stroke-opacity='0.055' stroke-width='1.4'/%3E%3C/svg%3E");
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .print-area,
+  .print-area * {
+    visibility: visible;
+  }
+  .print-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+  .no-print {
+    display: none !important;
+  }
+}

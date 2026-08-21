@@ -1,0 +1,25 @@
+{
+  "id": "pesantren-one-system",
+  "name": "Pesantren One System",
+  "short_name": "PosOne",
+  "description": "Sistem manajemen pesantren terpadu: santri, kartu NFC, saldo, POS, absensi, dan portal wali.",
+  "lang": "id",
+  "dir": "ltr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0A1F3E",
+  "theme_color": "#0A1F3E",
+  "categories": ["education", "productivity", "business"],
+  "icons": [
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "POS Kasir", "short_name": "POS", "url": "./#/pos", "description": "Buka kasir koperasi / kantin" },
+    { "name": "Top Up Saldo", "short_name": "Top Up", "url": "./#/topup", "description": "Top up saldo santri" },
+    { "name": "Data Santri", "short_name": "Santri", "url": "./#/santri", "description": "Kelola data santri" },
+    { "name": "Portal Wali", "short_name": "Wali", "url": "./#/wali", "description": "Portal wali santri" }
+  ]
+}
